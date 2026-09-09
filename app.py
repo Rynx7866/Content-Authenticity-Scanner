@@ -189,7 +189,7 @@ st.markdown("""
 load_dotenv()
 
 # This reads the environment variable (both locally and on Render)
-API_KEY = os.getenv("GCP_API_KEY")
+API_KEY = os.getenv("GEMINI_API_KEY")
 
 class DetectionResult(BaseModel):
     label: str = Field(description="Must be 'Fake' if AI-generated, or 'Real' if human-written")
