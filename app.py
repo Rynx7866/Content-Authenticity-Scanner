@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
 from detector import analyze_image_from_bytes
+import os
+from dotenv import load_dotenv
 
 # ─── Page Configuration ──────────────────────────────────────────────
 st.set_page_config(
@@ -183,9 +185,11 @@ st.markdown("""
 
 
 # ─── Gemini Setup ─────────────────────────────────────────────────────
+# This loads from your local .env file when testing on your computer
+load_dotenv()
 
-# Hardcoded API key - replace with your actual Google Gemini API key
-API_KEY = ""
+# This reads the environment variable (both locally and on Render)
+API_KEY = os.getenv("GCP_API_KEY")
 
 class DetectionResult(BaseModel):
     label: str = Field(description="Must be 'Fake' if AI-generated, or 'Real' if human-written")
