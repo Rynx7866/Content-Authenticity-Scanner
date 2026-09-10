@@ -4,15 +4,20 @@ import mimetypes
 from pydantic import BaseModel, Field
 from google import genai
 from google.genai import types
+from dotenv import load_dotenv
 
-# 1. Setup Gemini API
-api_key = os.environ.get("GEMINI_API_KEY")
+# Load environment variables from .env file in the current directory
+current_dir = os.path.dirname(os.path.abspath(__file__))
+env_path = os.path.join(current_dir, '.env')
+load_dotenv(env_path)
+
+# Setup Gemini API
+api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
-    # Fallback to hardcoded key if environment variable not set
-    api_key = ""
-    print("Using hardcoded API key")
-
-client = genai.Client(api_key=api_key)
+    print("Warning: GEMINI_API_KEY environment variable not set. Functions will fail when called.")
+    client = None
+else:
+    client = genai.Client(api_key=api_key)
 text_model_name = "gemini-3.1-flash-lite"
 vision_model_name = "gemini-3.1-flash-lite" 
 
@@ -54,6 +59,43 @@ Look for common signs of AI-generated images such as:
 Provide your output strictly matching the requested JSON schema with detailed reasoning about specific visual elements you observed.
 """
 
+def analyze_text(text):
+    """
+    Analyze text to determine if it's AI-generated or human-written.
+    
+    Args:
+        text: The text content to analyze
+        
+    Returns:
+        Dictionary with label, score, and reasoning
+    """
+    if not client:
+        return {
+            "label": "Error",
+            "score": 0.0,
+            "reasoning": "GEMINI_API_KEY not set. Please configure your API key."
+        }
+    
+    try:
+        response = client.models.generate_content(
+            model=text_model_name, 
+            contents=text,
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_INSTRUCTION,
+                response_mime_type="application/json",
+                response_schema=DetectionResult,
+                temperature=0.1
+            )
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"Error analyzing text: {e}")
+        return {
+            "label": "Error",
+            "score": 0.0,
+            "reasoning": f"Failed to analyze text: {str(e)}"
+        }
+
 def analyze_image(image_path):
     """
     Analyze an image to determine if it's AI-generated or real.
@@ -64,6 +106,13 @@ def analyze_image(image_path):
     Returns:
         Dictionary with label, score, and reasoning
     """
+    if not client:
+        return {
+            "label": "Error",
+            "score": 0.0,
+            "reasoning": "GEMINI_API_KEY not set. Please configure your API key."
+        }
+    
     try:
         # Detect the mime type of the image
         mime_type, _ = mimetypes.guess_type(image_path)
@@ -112,6 +161,13 @@ def analyze_image_from_bytes(image_data, mime_type="image/jpeg"):
     Returns:
         Dictionary with label, score, and reasoning
     """
+    if not client:
+        return {
+            "label": "Error",
+            "score": 0.0,
+            "reasoning": "GEMINI_API_KEY not set. Please configure your API key."
+        }
+    
     try:
         # Create a Part with the image data
         image_part = types.Part.from_bytes(
@@ -141,6 +197,10 @@ def analyze_image_from_bytes(image_data, mime_type="image/jpeg"):
         }
         
 def filter_dataset_batch(text_list, threshold=0.70):
+    if not client:
+        print("GEMINI_API_KEY not set. Cannot filter dataset.")
+        return text_list
+    
     human_texts = []
     
     for idx, text in enumerate(text_list):
